@@ -20,9 +20,13 @@ import numpy
 
 
 
-def readNodeTrees():
+def readNodeTrees(all):
     output = []
-    materialslots = bpy.context.active_object.material_slots
+    
+    if(all == True):
+        materialslots = bpy.context.active_object.material_slots
+    else:
+        materialslots = [bpy.context.active_object.active_material]
     
     bpy.context.scene.BlToUnShader_debugfile = ""
     bpy.context.scene.BlToUnShader_uvtex = ""
@@ -30,8 +34,12 @@ def readNodeTrees():
     materialDataArray = []
     writedebug("START OF CONVERSION TRANSCRIPT!")
     
+    
     for materialslot in materialslots:
-        material = materialslot.material
+        if(all):
+            material = materialslot.material
+        else:
+            material = materialslots[0]
         nodetree = material.node_tree
         nodes = nodetree.nodes
         
@@ -297,6 +305,9 @@ def writeNodeData(material,locals,globals,inputs):
                 elif(inputchild.type == "VALUE" and (outputparent.type == "VECTOR" or outputparent.type == "RGBA" or outputparent.type == "IMAGE")):
                     averagevalue = "(("+outputparent.node.label+"["+str(outputindex)+"].x"+"+"+outputparent.node.label+"["+str(outputindex)+"].y"+"+"+outputparent.node.label+"["+str(outputindex)+"].z)/3)"
                     nodeInputTypes.append("\"float4("+averagevalue+","+averagevalue+","+averagevalue+","+averagevalue+")\"")
+                elif(outputparent.type == "VALUE" and (inputchild.type == "VECTOR" or inputchild.type == "RGBA" or inputchild.type == "IMAGE")):
+                    averagevalue = outputparent.node.label+"["+str(outputindex)+"].r"
+                    nodeInputTypes.append("\"float4("+averagevalue+","+averagevalue+","+averagevalue+","+averagevalue+")\"")
                 elif(inputchild.type == "SHADER" and outputparent.type == "SHADER"):
                     nodeInputTypes.append("[\""+outputparent.node.label+"\",False]")
                 elif(inputchild.type == "SHADER" and outputparent.type == "RGBA"):
@@ -322,11 +333,18 @@ def writeNodeData(material,locals,globals,inputs):
         if(node.type == "BSDF_GLASS" or node.type == "BSDF_GLOSSY" or node.type == "BSDF_PRINCIPLED"):
             executeString += ",\""+node.distribution+"\""
         elif(node.type == "MATH"):
-            if(not(node.operation == "MULTIPLY_ADD" or node.operation == "COMPARE")):
+            
+            
+            if(node.operation in ["SQRT", "EXPONENT", "SIGN", "ROUND", "FLOOR", "CEIL", "TRUNC", "FRACT", "SINE", "COSINE", "TANGENT", "ARCSINE", "ARCCOSINE", "ARCTANGENT", "SINH", "COSH", "TANH", "RADIANS", "DEGREES" ]):
                 executeString += ",\"float4(1.0,1.0,1.0,1.0)\""
-                executeString += ",\""+str(node.use_clamp)+"\",\""+node.operation+"\""
+                executeString += ",\"float4(1.0,1.0,1.0,1.0)\""
+                executeString += ","+str(node.use_clamp)+",\""+node.operation+"\""
+            elif(node.operation in ["MULTIPLY_ADD", "COMPARE","SMOOTH_MIN", "SMOOTH_MAX", "WRAP"]):
+                executeString += ","+str(node.use_clamp)+",\""+node.operation+"\""
             else:
-                executeString += ",\""+str(node.use_clamp)+"\",\""+node.operation+"\""
+                executeString += ","+str(node.use_clamp)+",\""+node.operation+"\""
+                
+                
         elif(node.type == "RGB"):
             executeString = "RGB(\""+node.label+"\",["+str(node.outputs[0].default_value[0])+","+str(node.outputs[0].default_value[1])+","+str(node.outputs[0].default_value[2])+","+str(node.outputs[0].default_value[3])+"]"
         elif(node.type == "TEX_BRICK"):
@@ -705,27 +723,107 @@ def MAPPING(name,vector,location, rotation, scale, mode):
 def define_MAPPING(name):
     return [defineVarible(name,1),"",""]
 
-#FINISH THIS!!!
+
 #FINISH IMPLEMENTING MODE SETTINGS
-#TAKE ACCOUNT INTO THE VALUE 3 WHEN CALLING!
 def MATH(name, value1, value2, value3, clamp, math):
+    
     value1 = value1+".r"
     value2 = value2+".r"
     value3 = value3+".r"
     equa = name+"[0] = "
+    
+    final = ""
+    
+    #haha, Optimization be like: if else if else if else if else if else if else - @989onan
+    
     if(math == "ADD"):
-        return MathHelper(equa,"("+value1+"+"+value2+")")
+        final = "("+value1+"+"+value2+")"
     elif(math == "SUBTRACT"):
-        return MathHelper(equa,"("+value1+"-"+value2+")")
+        final = "("+value1+"-"+value2+")"
     elif(math == "MULTIPLY"):
-        return MathHelper(equa,"("+value1+"*"+value2+")")
+        final = "("+value1+"*"+value2+")"
     elif(math == "DIVIDE"):
-        return MathHelper(equa,"("+value1+"/"+value2+")")
+        final = "("+value1+"/"+value2+")"
     elif(math == "MULTIPLY_ADD"):
-        return MathHelper(equa,"(("+value1+"*"+value2+")+"+value3+")")
+        final = "(("+value1+"*"+value2+")+"+value3+")"
     elif(math == "POWER"):
-        return MathHelper(equa,"(pow("+value1+","+value2+"))")
-    return "//Woops! Not a coded math type! Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+        final = "(pow("+value1+","+value2+"))"
+    elif(math == "LOGARITHM"):
+        final = "(log("+value1+")/log("+value2+"))"
+    elif(math == "SQRT"):
+        final = "(pow("+value1+",0.5))"
+    elif(math == "INVERSE_SQRT"):
+        final = "(1/pow("+value1+",0.5))"
+    elif(math == "ABSOLUTE"):
+        final = "(abs("+value1+"))"
+    elif(math == "EXPONENT"):
+        final = "(exp("+value1+"))"
+    elif(math == "MINIMUM"):
+        final = "(min("+value1+","+value2+"))"
+    elif(math == "MAXIMUM"):
+        final = "(max("+value1+","+value2+"))"
+    elif(math == "LESS_THAN"):
+        final = "(A < B ? 1 : 0)"
+    elif(math == "GREATER_THAN"):
+        final = "(A > B ? 1 : 0)"
+    elif(math == "SIGN"):
+        final = "(sign("+value1+"))"
+    elif(math == "COMPARE"):
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0") #untiy has this for exact comparison. Someone adapt this: "A == B ? 1 : 0" 
+    elif(math == "SMOOTH_MIN"):
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+    elif(math == "SMOOTH_MAX"):
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+    elif(math == "ROUND"):
+        final = "(round("+value1+"))"
+    elif(math == "FLOOR"):
+        final = "(floor("+value1+"))"
+    elif(math == "CEIL"):
+        final = "(ceil("+value1+"))"
+    elif(math == "TRUNC"):
+        final = "(trunc("+value1+"))"
+    elif(math == "FRACT"):
+        final = "(frac("+value1+"))"
+    elif(math == "MODULO"):
+        final = "(fmod("+value1+","+value2+"))"
+    elif(math == "WRAP"):
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+    elif(math == "SNAP"):
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+    elif(math == "PINGPONG"):
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+    elif(math == "SINE"):
+        final = "(sin("+value1+"))"
+    elif(math == "COSINE"):
+        final = "(cos("+value1+"))"
+    elif(math == "TANGENT"):
+        final = "(tan("+value1+"))"
+    elif(math == "ARCSINE"):
+        final = "(asin("+value1+"))"
+    elif(math == "ARCCOSINE"):
+        final = "(acos("+value1+"))"
+    elif(math == "ARCTANGENT"):
+        final = "(atan("+value1+"))"
+    elif(math == "ARCTAN2"):
+        final = "(atan2("+value1+","+value2+"))"
+    elif(math == "SINH"):
+        final = "(sinh("+value1+"))"
+    elif(math == "COSH"):
+        final = "(cosh("+value1+"))"
+    elif(math == "TANH"):
+        final = "(tanh("+value1+"))"
+    elif(math == "RADIANS"):
+        final = "(("+value1+")* (3.141592653589793238462*180))"
+    elif(math == "DEGREES"):
+        final = "(("+value1+")* (3.141592653589793238462/180))"
+    else:
+        return "//Woops! Not a coded math type! (type: \""+math+"\") Here's a placeholder."+"\n            "+MathHelper(equa, "1.0")
+    
+    if(clamp == False):
+        return MathHelper(equa,final)
+    else:
+        return MathHelper(equa,"saturate("+final+")")
+    
     ##CONTINUE TYPES!!!
 def MathHelper(equa,value):
     return equa+"float4("+value+","+value+","+value+","+value+");"    
@@ -776,10 +874,10 @@ def OUTPUT_MATERIAL(name,shader1,volume,displacement):
     
     if(not shader1[1]):
         shader1 = shader1[0]
-        return "o.Albedo = "+shader1+"_color.rgb;\n            o.Alpha = "+shader1+"_color.a;\n            o.Emission = "+shader1+"_emission.rgb;\n            o.Smoothness = abs("+shader1+"_roughness.r-1);"
+        return "o.Albedo = "+shader1+"_color.rgb;\n            o.Alpha = "+shader1+"_color.a;\n            o.Emission = "+shader1+"_emission.rgb;\n            o.Smoothness = abs("+shader1+"_roughness.r-1);\n            o.Normal = "+displacement+".xyz;"
     else:
         shader1 = shader1[0]
-        return "o.Albedo = "+shader1+".rgb;\n            o.Alpha = "+shader1+".a;\n            o.Emission = "+shader1+".rgb;\n            o.Smoothness = abs("+float4ify("0.0")+".r-1);"
+        return "o.Albedo = "+shader1+".rgb;\n            o.Alpha = "+shader1+".a;\n            o.Emission = "+shader1+".rgb;\n            o.Smoothness = abs("+float4ify("0.0")+".r-1);\n            o.Normal = "+displacement+".xyz;"
     
 def define_OUTPUT_MATERIAL(name):
     return ["","",""]
@@ -873,7 +971,7 @@ def TEX_CHECKER(name,vector,color1,color2,scale):
     lerp = "lerp("+color2+","+color1+",(abs(floor("+vector+".g*"+scale+".r)) + abs(floor("+vector+".r*"+scale+".r))) % 2)"
     
     final = name+"[0] = float4("+lerp+".r,"+lerp+".g,"+lerp+".b,"+lerp+".a);//Easier than most... - @989onan"
-    final += "\n            "+name+"[1] = "+float4ify("lerp(0,1,(abs(floor("+vector+".r*"+scale+".r)) + abs(floor("+vector+".g*"+scale+".g))) % 2)")+"; //Easier than most... - @989onan"
+    final += "\n            "+name+"[1] = "+float4ify("lerp(0,1,(abs(floor("+vector+".r*"+scale+".r)) + abs(floor("+vector+".g*"+scale+".r))) % 2)")+"; //Easier than most... - @989onan"
     return final
 def define_TEX_CHECKER(name):
     return [defineVarible(name,2),"",""]
@@ -913,7 +1011,7 @@ def TEX_IMAGE(name, vector, imagename):
     if(imagename == ""):
         texture = "float4(1.0,0.0,1.0,1.0)"
     else:
-        texture = "tex2D(_"+imagename+",float3("+vector+".r,"+vector+".g,"+vector+".b))"
+        texture = "tex2D(_"+imagename+"_Texture,float2("+vector+".r,"+vector+".g))"
     return name+"[0] = float4("+texture+".r,"+texture+".g,"+texture+".b,1.0);\n            "+name+"[0] = "+float4ify(texture+".a")+";"
 def define_TEX_IMAGE(name):
     return [defineVarible(name,2),"",""]
@@ -1364,48 +1462,72 @@ class VIEW3D_PT_BlenderToUnityPanel(bpy.types.Panel):
         scene = context.scene
         row = self.layout.row()
         if(context.active_object is not None):
-            row.operator('object.blendertounityshader',text = "Convert Blender to Unity Shaders", icon = "MATERIAL")
+            row.operator('object.blendertounityshaderall',text = "Convert Blender to Unity Shaders", icon = "MATERIAL")
+        else:
+            row.label(text = "-No active object-")
+        if(context.active_object is not None):
+            row.operator('object.blendertounityshaderone',text = "Convert One Material to Unity Shaders", icon = "MATERIAL")
         else:
             row.label(text = "-No active object-")
         row.prop(bpy.context.scene, "BlToUnShader_debugmode", text="Enable/Disable Debug Mode")
         
+
+def start(context, all):
+    scene = context.scene
     
+    rawMaterials = readNodeTrees(all)
+    
+    for material in rawMaterials:
+        GeneratedFile = writeNodeData(material[0],material[1],material[2],material[3])
+        writedebug("\n======================="+material[0].name+"=======================")
+        writedebug("\n"+GeneratedFile)
+        writedebug("\nWriting this data to: "+bpy.path.abspath("//")+""+material[0].name+".shader")
+        
+        if(bpy.data.is_saved):
+            
+            file = open(bpy.path.abspath("//")+material[0].name+".shader", "w")
+            
+            GeneratedFile = GeneratedFile.replace(".jpg", "")
+            GeneratedFile = GeneratedFile.replace(".png", "")
+            
+            file.write(GeneratedFile)
+            file.close()
+            if(scene.BlToUnShader_debugmode == True):
+                
+                writedebug("\nWriting Debug Text File to: "+bpy.path.abspath("//")+""+material[0].name+"_debug.txt")
+                file = open(bpy.path.abspath("//")+material[0].name+"_debug.txt", "w")
+                file.write(scene.BlToUnShader_debugfile)
+                file.close()
+        else:
+            ShowMessageBox("Error! Please save this blender file somewhere before trying to generate a shader!", "Blender Nodes To Unity Shader", 'ERROR')
+    
+    return {'FINISHED'}
+
+
+
 class OBJECT_OT_MakeShader(bpy.types.Operator):
     """Convert Blender Material to Unity Shader"""
     
-    bl_idname = "object.blendertounityshader"
+    bl_idname = "object.blendertounityshaderall"
     bl_label = "Convert Blender to Unity Shaders"
     bl_options = {'REGISTER'}
     
     
     
     def execute(self,context):
-        scene = context.scene
-        
-        
-        rawMaterials = readNodeTrees()
-        
-        for material in rawMaterials:
-            GeneratedFile = writeNodeData(material[0],material[1],material[2],material[3])
-            writedebug("\n======================="+material[0].name+"=======================")
-            writedebug("\n"+GeneratedFile)
-            writedebug("\nWriting this data to: "+bpy.path.abspath("//")+""+material[0].name+".shader")
-            
-            if(bpy.data.is_saved):
-                
-                file = open(bpy.path.abspath("//")+material[0].name+".shader", "w")
-                file.write(GeneratedFile)
-                file.close()
-                if(scene.BlToUnShader_debugmode == True):
-                    
-                    writedebug("\nWriting Debug Text File to: "+bpy.path.abspath("//")+""+material[0].name+"_debug.txt")
-                    file = open(bpy.path.abspath("//")+material[0].name+"_debug.txt", "w")
-                    file.write(scene.BlToUnShader_debugfile)
-                    file.close()
-            else:
-                ShowMessageBox("Error! Please save this blender file somewhere before trying to generate a shader!", "Blender Nodes To Unity Shader", 'ERROR')
-        
-        return {'FINISHED'}
+        start(context, True)
+
+class OBJECT_OT_MakeOneShader(bpy.types.Operator):
+    """Convert Blender Material to Unity Shader"""
+    
+    bl_idname = "object.blendertounityshaderone"
+    bl_label = "Convert Blender to Unity Shaders"
+    bl_options = {'REGISTER'}
+    
+    
+    
+    def execute(self,context):
+        return start(context, False)
 
 
 def register():
@@ -1413,12 +1535,14 @@ def register():
     bpy.types.Scene.BlToUnShader_uvtex = bpy.props.StringProperty(name="uvtex", default="")
     bpy.types.Scene.BlToUnShader_debugfile = bpy.props.StringProperty(name="debugfile", default="")
     bpy.utils.register_class(OBJECT_OT_MakeShader)
+    bpy.utils.register_class(OBJECT_OT_MakeOneShader)
     bpy.utils.register_class(VIEW3D_PT_BlenderToUnityPanel)
     
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_MakeShader)
     bpy.utils.unregister_class(VIEW3D_PT_BlenderToUnityPanel)
+    bpy.utils.unregister_class(OBJECT_OT_MakeOneShader)
     del bpy.types.Scene.BlToUnShader_debugmode
     del bpy.types.Scene.BlToUnShader_uvtex
     del bpy.types.Scene.BlToUnShader_debugfile

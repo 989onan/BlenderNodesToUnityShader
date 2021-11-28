@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Blender Material To Unity Shader",
     "author": "989onan, contributors on GitHub",
-    "version": (0, 0, 2),
+    "version": (0, 0, 1),
     "blender": (2, 93, 0),
     "location": "View3D > Sidebar > Shader Blender To Unity (Create Tab)",
     "description": "Converts the selected object's materials into"
@@ -139,7 +139,7 @@ def writedebug(string):
 
 def writeNodeData(material,locals,globals,inputs):
     
-    unsupported = ["BEVEL","AMBIENT_OCCLUSION","ATTRIBUTE","BACKGROUND","BLACKBODY","BSDF_ANISOTROPIC","BSDF_HAIR","BSDF_HAIR_PRINCIPLED","BSDF_VELVET","DISPLACEMENT","EEVEE_SPECULAR","NEW_GEOMETRY","OUTPUT_AOV","OUTPUT_LIGHT","OUTPUT_LINESTYLE","OUTPUT_WORLD","PARTICLE_INFO","SUBSURFACE_SCATTERING","TEX_WHITE_NOISE","UVALONGSTROKE","VECTOR_DISPLACEMENT","VOLUME_ABSORPTION","VOLUME_INFO","PRINCIPLED_VOLUME","VOLUME_SCATTER","BSDF_REFRACTION","BSDF_TOON","BSDF_TRANSLUCENT","GROUP","HOLDOUT","LIGHT_FALLOFF","LIGHT_PATH","NORMAL","NORMAL_MAP","TEX_IES","WAVELENGTH"]
+    unsupported = ["ShaderNodeBevel","ShaderNodeAmbientOcclusion","ShaderNodeAttribute","ShaderNodeBackground","ShaderNodeBlackbody","ShaderNodeBsdfAnisotropic","BSDF_HAIR","BSDF_HAIR_PRINCIPLED","BSDF_VELVET","DISPLACEMENT","EEVEE_SPECULAR","NEW_GEOMETRY","OUTPUT_AOV","OUTPUT_LIGHT","OUTPUT_LINESTYLE","OUTPUT_WORLD","PARTICLE_INFO","SUBSURFACE_SCATTERING","TEX_WHITE_NOISE","UVALONGSTROKE","VECTOR_DISPLACEMENT","VOLUME_ABSORPTION","VOLUME_INFO","PRINCIPLED_VOLUME","VOLUME_SCATTER","BSDF_REFRACTION","BSDF_TOON","BSDF_TRANSLUCENT","GROUP","HOLDOUT","LIGHT_FALLOFF","LIGHT_PATH","NORMAL","NORMAL_MAP","TEX_IES","WAVELENGTH"]
     
     #start our code string
     NewCode = ""
@@ -1501,7 +1501,7 @@ def start(context, all):
         else:
             ShowMessageBox("Error! Please save this blender file somewhere before trying to generate a shader!", "Blender Nodes To Unity Shader", 'ERROR')
     
-    return {'FINISHED'}
+    
 
 
 
@@ -1516,6 +1516,7 @@ class OBJECT_OT_MakeShader(bpy.types.Operator):
     
     def execute(self,context):
         start(context, True)
+        return {'FINISHED'}
 
 class OBJECT_OT_MakeOneShader(bpy.types.Operator):
     """Convert Blender Material to Unity Shader"""
@@ -1527,7 +1528,8 @@ class OBJECT_OT_MakeOneShader(bpy.types.Operator):
     
     
     def execute(self,context):
-        return start(context, False)
+        start(context, False)
+        return {'FINISHED'}
 
 
 def register():

@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Blender Material To Unity Shader",
     "author": "989onan, contributors on GitHub",
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "blender": (2, 93, 0),
     "location": "View3D > Sidebar > Shader Blender To Unity (Create Tab)",
     "description": "Converts the selected object's materials into"

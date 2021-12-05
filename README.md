@@ -1,5 +1,10 @@
 # BlenderNodesToUnityShader
 
+# I'm using this with the Cats plugin, will this work?/ Will this work for me?:
+Most likely yes, because models made in blender or ported from other places made in blender will work 99% of the time. This is because the material setups they use are just a simple principled BDSF or some simple node settup where not much is happening. This addon will break when the node settup uses much more complicated nodes like snap, vector rotating on X axis, black bodies, wavelength to color, and other things that usually most blender models don't use. This will actually work for some vector math equations and even splitting vectors into multiple parts and inputting vectors into color and so forth. It can replicate crazy node settups where textures change and warp based on the camera angle or a color multiplied by some strange uv map plugged into a uv map or something crazy. The issue arrises when the node settup uses nodes that use complex math in a singular node, things that depend on complex concepts like color theory, or are very blender specific. Can't do node groups, please unpack them!
+
+**TLDR**: 99% possibility of success on usual node settups. Breaks on edge cases 99% of the time where the nodes used are very blender specific. Can't do node groups, please unpack them!
+
 # About:
 This is a simple description for now, but this is a tool I made for Blender and Unity users alike. do you hate that there are blender materials
 that blender artists made that are simple, cool looking, but not for unity? Not anymore! This will generate a shader that does a "#pragma 4.0" shader 

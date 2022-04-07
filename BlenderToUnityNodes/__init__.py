@@ -594,6 +594,8 @@ def BSDF_DIFFUSE(name,color,roughness,normal):
 def define_BSDF_DIFFUSE(name):
     return ["float4 "+name+"_color;"+"\n            float4 "+name+"_emission;"+"\n            float4 "+name+"_roughness;","",""]
 
+def define_FRAME(name):
+    return ["","",""]
 
 def BSDF_GLASS(name,color,roughness,IOR,normal,mode):
     if(mode == "SHARP"):
